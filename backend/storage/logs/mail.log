@@ -1,0 +1,24 @@
+[2026-06-18 17:31:02] TO: john@geoattend.test | SUBJECT: Reset your GeoAttend Pro password
+Click to reset your password (valid 60 min):http://localhost:5173/reset-password?token=7dd83af43cbebe2e6e9c45b4f96e562ba23a46fb181ede819553bd7acefd49ff&email=john%40geoattend.test
+------------------------------------------------------------
+[2026-06-18 17:44:35] TO: john@geoattend.test | SUBJECT: Your GeoAttend Pro password reset OTP
+
+                GeoAttend Pro — Password Reset
+                Use this One-Time Password (OTP) to reset your password:
+                693279
+                This OTP is valid for 10 minutes. If you did not request this, ignore this email.
+------------------------------------------------------------
+[2026-06-18 17:51:20] TO: coding.anantha@gmail.com | SUBJECT: Your GeoAttend Pro password reset OTP
+
+                GeoAttend Pro — Password Reset
+                Use this One-Time Password (OTP) to reset your password:
+                672082
+                This OTP is valid for 10 minutes. If you did not request this, ignore this email.
+------------------------------------------------------------
+[2026-06-18 17:52:21] TO: coding.anantha@gmail.com | SUBJECT: Your GeoAttend Pro password reset OTP
+
+                GeoAttend Pro — Password Reset
+                Use this One-Time Password (OTP) to reset your password:
+                459606
+                This OTP is valid for 10 minutes. If you did not request this, ignore this email.
+------------------------------------------------------------

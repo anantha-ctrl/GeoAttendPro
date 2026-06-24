@@ -1,0 +1,10 @@
+[22-Jun-2026 11:55:29 Asia/Kolkata] SQLSTATE[23000]: Integrity constraint violation: 1452 Cannot add or update a child row: a foreign key constraint fails (`geoattend_pro`.`users`, CONSTRAINT `fk_users_department` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`) ON DELETE SET NULL ON UPDATE CASCADE)
+#0 D:\xampp\htdocs\GeoAttendPro\backend\src\Core\Database.php(51): PDOStatement->execute(Array)
+#1 D:\xampp\htdocs\GeoAttendPro\backend\src\Core\Database.php(73): App\Core\Database::run('INSERT INTO use...', Array)
+#2 D:\xampp\htdocs\GeoAttendPro\backend\src\Models\BaseModel.php(38): App\Core\Database::insert('INSERT INTO use...', Array)
+#3 D:\xampp\htdocs\GeoAttendPro\backend\src\Controllers\EmployeeController.php(236): App\Models\BaseModel::create(Array)
+#4 D:\xampp\htdocs\GeoAttendPro\backend\src\Core\Router.php(60): App\Controllers\EmployeeController->import(Object(App\Core\Request))
+#5 D:\xampp\htdocs\GeoAttendPro\backend\public\index.php(148): App\Core\Router->dispatch(Object(App\Core\Request))
+#6 {main}
+[22-Jun-2026 12:29:23 Asia/Kolkata] PHP Warning:  Trying to access array offset on value of type null in D:\xampp\htdocs\GeoAttendPro\backend\database\_check.php on line 7
+[22-Jun-2026 12:29:23 Asia/Kolkata] PHP Deprecated:  password_verify(): Passing null to parameter #2 ($hash) of type string is deprecated in D:\xampp\htdocs\GeoAttendPro\backend\database\_check.php on line 7
