@@ -143,16 +143,17 @@ export default function AdminDashboard() {
               <p className="text-muted small mb-0">No check-ins yet.</p>
             ) : (
               <ul className="list-group list-group-flush">
-                {data.recent_check_ins.map((r, i) => (
+                {data.recent_check_ins.slice(0, 3).map((r, i) => (
                   <li key={i} className="list-group-item d-flex align-items-center gap-2 px-0">
                     {r.check_in_selfie
-                      ? <img src={`${API_BASE}${r.check_in_selfie}`} alt="" style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: '50%' }} />
-                      : <span className="rounded-circle bg-light d-inline-grid" style={{ width: 36, height: 36, placeItems: 'center' }}><i className="bi bi-person" /></span>}
-                    <div className="flex-grow-1">
-                      <div className="small fw-semibold">{r.full_name}</div>
-                      <div className="text-muted" style={{ fontSize: '.72rem' }}>{r.employee_code} · {fmtTime(r.check_in_time)}</div>
+                      ? <img src={`${API_BASE}${r.check_in_selfie}`} alt="" className="flex-shrink-0" style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: '50%' }} />
+                      : <span className="rounded-circle bg-light d-inline-grid flex-shrink-0" style={{ width: 36, height: 36, placeItems: 'center' }}><i className="bi bi-person" /></span>}
+                    <div className="flex-grow-1 text-truncate">
+                      <div className="small fw-semibold text-truncate">{r.full_name}</div>
+                      <div className="text-muted text-truncate" style={{ fontSize: '.72rem' }}>{r.employee_code} · {fmtTime(r.check_in_time)}</div>
                     </div>
-                    <span className={`badge text-bg-${statusColor(r.status)} badge-status`}>{prettyStatus(r.status)}</span>
+                    <span className={`badge text-bg-${statusColor(r.status)} badge-status flex-shrink-0 text-center`}
+                      style={{ minWidth: 72 }}>{prettyStatus(r.status)}</span>
                   </li>
                 ))}
               </ul>

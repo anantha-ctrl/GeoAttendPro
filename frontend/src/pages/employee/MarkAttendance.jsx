@@ -14,6 +14,7 @@ export default function MarkAttendance() {
   const [today, setToday] = useState(null);
   const [coords, setCoords] = useState(null);
   const [selfie, setSelfie] = useState(null);
+  const [workNote, setWorkNote] = useState('');
   const [cameraOn, setCameraOn] = useState(false);
   const [status, setStatus] = useState({ type: '', msg: '' });
   const [busy, setBusy] = useState(false);
@@ -61,29 +62,32 @@ export default function MarkAttendance() {
   // Clean up the camera stream on unmount.
   useEffect(() => () => stopCamera(), []);
 
-  // Init the Leaflet map once + draw any office geofences for reference.
+  // Init the Leaflet map once.
   useEffect(() => {
     const L = window.L;
     if (!L || mapObj.current || !mapEl.current) return;
     mapObj.current = L.map(mapEl.current).setView([12.9716, 77.5946], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 })
       .addTo(mapObj.current);
-
     // Click anywhere to set the precise spot.
     mapObj.current.on('click', (e) => setMarker(e.latlng.lat, e.latlng.lng, null, true));
-
-    // Draw configured geofences so the user can align to the office.
-    api.get('/geofences').then((r) => {
-      const fences = r.data.data || [];
-      let centered = false;
-      fences.forEach((g) => {
-        const lat = Number(g.latitude), lng = Number(g.longitude);
-        L.circle([lat, lng], { radius: Number(g.radius_m) || 100, color: '#16a34a', fillOpacity: 0.08 })
-          .addTo(mapObj.current).bindTooltip(g.name);
-        if (!centered) { mapObj.current.setView([lat, lng], 17); centered = true; }
-      });
-    }).catch(() => {});
   }, []);
+
+  // Draw office geofences from /attendance/today (employee-accessible) once loaded.
+  const fenceLayer = useRef(null);
+  useEffect(() => {
+    const L = window.L;
+    if (!L || !mapObj.current || !today?.geofences) return;
+    if (fenceLayer.current) { mapObj.current.removeLayer(fenceLayer.current); }
+    fenceLayer.current = L.layerGroup().addTo(mapObj.current);
+    let centered = false;
+    today.geofences.forEach((g) => {
+      const lat = Number(g.latitude), lng = Number(g.longitude);
+      L.circle([lat, lng], { radius: Number(g.radius_m) || 100, color: '#16a34a', fillOpacity: 0.08 })
+        .addTo(fenceLayer.current).bindTooltip(g.name);
+      if (!centered && !coords) { mapObj.current.setView([lat, lng], 17); centered = true; }
+    });
+  }, [today?.geofences]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Place/move the draggable marker + accuracy circle and recentre.
   const setMarker = (lat, lng, accuracy, manual = false) => {
@@ -202,15 +206,20 @@ export default function MarkAttendance() {
     if (action === 'check-in' && faceState === 'checking') {
       return setStatus({ type: 'warning', msg: 'Verifying your face… please wait a moment.' });
     }
+    // A work summary is required before checking out.
+    if (action === 'check-out' && !workNote.trim()) {
+      return setStatus({ type: 'danger', msg: 'Please describe the work you did this session before checking out.' });
+    }
     setBusy(true);
     setStatus({ type: '', msg: '' });
     try {
       const { data } = await api.post(`/attendance/${action}`, {
         latitude: coords.latitude, longitude: coords.longitude, selfie,
         face_verified: faceState === 'verified',
+        work_note: action === 'check-out' ? workNote.trim() : undefined,
       });
       setStatus({ type: 'success', msg: data.message });
-      setSelfie(null); setCoords(null); setFaceState('none');
+      setSelfie(null); setCoords(null); setFaceState('none'); setWorkNote('');
       // Clear the map pin/circle for the next session.
       if (markerRef.current) { mapObj.current?.removeLayer(markerRef.current); markerRef.current = null; }
       if (circleRef.current) { mapObj.current?.removeLayer(circleRef.current); circleRef.current = null; }
@@ -379,6 +388,20 @@ export default function MarkAttendance() {
         </div>
       </div>
 
+      {/* Work summary — required before check-out. */}
+      {canCheckOut && (
+        <div className="card stat-card mt-3"><div className="card-body">
+          <h6 className="fw-semibold mb-2">
+            <i className="bi bi-journal-text me-1" />Work Summary <span className="text-danger">*</span>
+          </h6>
+          <p className="text-muted small mb-2">Before checking out, describe what you worked on this session.</p>
+          <textarea className="form-control" rows={3} maxLength={2000}
+            placeholder="e.g. Completed the payroll module, fixed 3 bugs, attended client call…"
+            value={workNote} onChange={(e) => setWorkNote(e.target.value)} />
+          <div className="text-muted small mt-1 text-end">{workNote.length}/2000</div>
+        </div></div>
+      )}
+
       <div className="mt-3 d-flex gap-2">
         {canCheckIn && (
           <button className="btn btn-success btn-lg" disabled={busy || (!!coords && !locationAllowed)} onClick={() => submit('check-in')}>
@@ -386,7 +409,7 @@ export default function MarkAttendance() {
           </button>
         )}
         {canCheckOut && (
-          <button className="btn btn-danger btn-lg" disabled={busy || (!!coords && !locationAllowed)} onClick={() => submit('check-out')}>
+          <button className="btn btn-danger btn-lg" disabled={busy || (!!coords && !locationAllowed) || !workNote.trim()} onClick={() => submit('check-out')}>
             <i className="bi bi-box-arrow-right me-1" />{busy ? 'Submitting…' : 'Check Out'}
           </button>
         )}
@@ -397,7 +420,7 @@ export default function MarkAttendance() {
           <h6 className="fw-semibold mb-3"><i className="bi bi-list-check me-1" />Today's Sessions</h6>
           <div className="table-responsive">
             <table className="table gap-table table-sm">
-              <thead><tr><th>#</th><th>Check In</th><th>Check Out</th><th>Worked</th></tr></thead>
+              <thead><tr><th>#</th><th>Check In</th><th>Check Out</th><th>Worked</th><th>Work Summary</th></tr></thead>
               <tbody>
                 {today.sessions.map((s, i) => (
                   <tr key={s.id}>
@@ -405,6 +428,7 @@ export default function MarkAttendance() {
                     <td>{fmtTime(s.check_in_time)}</td>
                     <td>{s.check_out_time ? fmtTime(s.check_out_time) : <span className="badge text-bg-info">In progress</span>}</td>
                     <td>{s.working_minutes ? fmtHours(s.working_minutes) : '—'}</td>
+                    <td className="small text-muted" style={{ maxWidth: 320, whiteSpace: 'pre-wrap' }}>{s.work_note || '—'}</td>
                   </tr>
                 ))}
               </tbody>

@@ -3,7 +3,7 @@
 > Formerly *GeoAttend Pro*. A production-grade attendance & productivity platform for companies
 > with or without a physical office. Employees mark attendance using **GPS geofencing + live
 > selfie + face verification**, while a real-time **work-tracking state machine** (Working →
-> Rest → Overtime → Logged Out) monitors actual working time. Includes leave, payroll, expenses,
+> Overtime → Logged Out) monitors actual working time. Includes leave, payroll, expenses,
 > tasks, help-desk, multi-branch support, reporting and full auditing.
 
 | Layer     | Technology |
@@ -12,14 +12,14 @@
 | Maps/AI   | Leaflet + OpenStreetMap (geofence picker), face-api.js (face match), jsPDF + autotable (PDF) |
 | Backend   | PHP 8.2 REST API (clean MVC, no framework lock-in), PDO |
 | Database  | MySQL / MariaDB 10.4+ |
-| Auth      | Opaque session tokens, session timeout, CSRF double-submit, RBAC |
+| Auth      | Opaque session tokens, CSRF double-submit, RBAC |
 
 ```
 GeoAttendPro/
 ├── backend/                 PHP REST API
 │   ├── config/              env loader + bootstrap (autoloader)
 │   ├── console/             CLI: migrate.php, cron.php
-│   ├── database/            schema.sql, seed.sql, phase2..phase9 migrations
+│   ├── database/            schema.sql, seed.sql, phase2..phase10 migrations
 │   ├── public/              front controller (index.php) + .htaccess + uploads
 │   └── src/
 │       ├── Core/            Database, Router, Request, Response, Auth, Csrf, Validator
@@ -66,8 +66,8 @@ flowchart TD
   G -- No --> X["Blocked — outside office"]
   G -- Yes --> H
   H --> I["Check-in: open session<br/>status = Working · log 'login' · record branch"]
-  I --> J["Work-tracking state machine runs"]
-  J --> K["Check-out / Logout<br/>finalize session + day totals"]
+  I --> J["Work-tracking state machine runs<br/>(auto work + overtime)"]
+  J --> K["Check-out<br/>type work summary → finalize<br/>session + day totals"]
   K --> DB[("Persist to MySQL")]
 ```
 
@@ -75,18 +75,15 @@ flowchart TD
 ```mermaid
 stateDiagram-v2
   [*] --> Working: Check-in
-  Working --> Rest: screen off / lock / sleep
-  Rest --> Working: screen on
   Working --> Overtime: 6:30 PM popup → Continue Working
-  Overtime --> Rest: screen off / lock / sleep
-  Rest --> Overtime: screen on (overtime active)
   Working --> LoggedOut: Logout / Check-out
   Overtime --> LoggedOut: Logout
   LoggedOut --> [*]
 ```
 
-> 🟢 Working · 🟡 Rest Mode · 🔵 Overtime · ⚫ Logged Out — surfaced live on the
-> **Admin Live Status** board and the employee dashboard timeline.
+> 🟢 Working · 🔵 Overtime · ⚫ Logged Out — surfaced live on the
+> **Admin Live Status** board and the employee dashboard timeline. Work time is
+> auto-tracked from check-in (no rest/idle deductions).
 
 ### Leave / WFH approval flow
 ```mermaid
@@ -266,7 +263,7 @@ erDiagram
 
   USERS {
     int id PK
-    string employee_code "CLHK-####"
+    string employee_code "CLHK###"
     string full_name
     string email
     int role_id FK
@@ -282,7 +279,6 @@ erDiagram
     datetime check_in_time
     datetime check_out_time
     int working_minutes
-    int rest_seconds
     enum status "present/late/half_day/absent/leave/wfh"
     string branch
   }
@@ -292,16 +288,16 @@ erDiagram
     datetime check_in_time
     datetime check_out_time
     int working_minutes
-    int rest_seconds
-    enum work_status "working/rest/overtime/logged_out"
+    enum work_status "working/overtime/logged_out"
     int overtime_seconds
     string branch
+    string work_note "check-out summary"
   }
   ATTENDANCE_EVENTS {
     bigint id PK
     int user_id FK
     bigint session_id FK
-    enum event_type "login/rest_start/rest_end/overtime_start/logout"
+    enum event_type "login/overtime_start/logout"
     datetime event_time
   }
   LEAVES {
@@ -333,11 +329,13 @@ erDiagram
 - **Regularization** — employees request corrections for missing/wrong attendance; admin approves.
 
 ### Smart work-tracking state machine
-- States: 🟢 **Working** · 🟡 **Rest Mode** · 🔵 **Overtime** · ⚫ **Logged Out**.
-- **Rest** is detected only on genuine **screen-off / lock / sleep** (clock-gap while the tab stays visible) — switching browser tabs/apps never counts as rest.
+- States: 🟢 **Working** · 🔵 **Overtime** · ⚫ **Logged Out**.
+- Work time is **auto-tracked from check-in** — the session opens on check-in and runs until check-out/logout.
 - **6:30 PM popup** ("standard working duration reached") → *Logout* or *Continue Working*; continuing starts **Overtime mode** with a reminder every 30 minutes.
-- Full **timeline** per day (login, rest start/end, overtime start, logout) in `attendance_events`.
-- **Admin Live Status board** — real-time per-employee status + Login/Active/Rest/Overtime durations (15s auto-refresh).
+- **Work summary required at check-out** — employees type what they worked on; it is stored per session (`attendance_sessions.work_note`) and shown in the day's sessions.
+- Full **timeline** per day (login, overtime start, logout) in `attendance_events`.
+- **Live Worked/Overtime counters** on the employee dashboard tick every second (computed from check-in, re-synced each `/attendance/live` poll) so today's hours feed straight into the monthly target in real time.
+- **Admin Live Status board** — real-time per-employee status + Worked/Overtime durations (15s auto-refresh).
 
 ### Leave, payroll & finance
 - **Leave management** — apply / approve / reject / cancel, leave types with yearly limits, **per-type leave balance**.
@@ -353,15 +351,16 @@ erDiagram
 - **Notifications** (in-app) + email hooks; **activity / security audit log**.
 
 ### Dashboards & reporting
-- **Employee dashboard** — quick actions, attendance %, today vs monthly hours, monthly hours target, live work status + timeline, net pay, open tasks/tickets, latest notice, upcoming holidays, celebrations.
-- **Admin dashboard** — live counters, status pie, daily/monthly trends, department breakdown, recent check-ins, pending leaves.
+- **Employee dashboard** — quick actions, attendance %, today vs monthly hours, monthly hours target, **live real-time Worked/Overtime counter** (ticks every second, re-syncs on each server poll), live work status + timeline, **payslip summary** (base / overtime / deductions / net pay), open tasks, **open tickets**, pending leaves, latest notice, upcoming holidays, celebrations.
+- **Admin dashboard** — live counters, status pie, daily/monthly trends, department breakdown, **recent check-ins (latest 3)**, pending leaves, late today, celebrations.
 - **Reports** with charts and **PDF export** (jsPDF).
 - **Settings** — work start/end time, late grace, half/full-day minutes, late-per-deduction, overtime rate, geofence enforcement & geofence map picker.
 
 ### Platform
 - **RBAC**: Super Admin, Admin/HR, Employee. CSRF on state-changing routes; opaque token sessions.
-- Employee IDs use the **`CLHK-####`** prefix.
+- Employee IDs use the **`CLHK###`** format (e.g. `CLHK001`).
 - **CloudHawk** branding (logo + name) across landing, auth and app shell.
+- **Mobile-responsive shell** — off-canvas sidebar with hamburger (≤991px), centered brand, and a top-right **profile dropdown** (My Profile · Change Password · Settings · Logout).
 
 ## Database migrations
 
@@ -371,16 +370,18 @@ erDiagram
 |-----------|------|
 | `phase2.php` | shifts, regularizations, users.shift_id/manager_id |
 | `phase3.php` | documents, face descriptor |
+| `phase4.php` | users.monthly_salary (payroll), users.date_of_birth (celebrations) |
 | `phase5.php` | clients, purchases |
 | `phase6.php` | announcements, expense_claims, tasks, tickets |
-| `phase7.php` | attendance(.rest_seconds) — active vs rest time |
-| `phase8.php` | work_status, overtime, rest/overtime markers, attendance_events timeline |
+| `phase7.php` | attendance(.rest_seconds) — work-time tracking columns |
+| `phase8.php` | work_status, overtime markers, attendance_events timeline |
 | `phase9.php` | attendance(.branch) — multi-branch tracking |
+| `phase10.php` | attendance_sessions(.work_note) — check-out work summary |
 
 ```bash
 cd backend
 "D:/xampp/php/php.exe" console/migrate.php     # base schema + seed
-"D:/xampp/php/php.exe" database/phase2.php      # then run phase3..phase9 in order
+"D:/xampp/php/php.exe" database/phase2.php      # then run phase3..phase10 in order
 ```
 
 ## Quick start
@@ -390,7 +391,7 @@ cd backend
 # Ensure MySQL/MariaDB is running. Configure backend/.env (DB_HOST/PORT/USER/PASS).
 cd backend
 php console/migrate.php        # creates schema + seed data
-# run phase2.php … phase9.php (above) to apply all features
+# run phase2.php … phase10.php (above) to apply all features
 ```
 
 ### 2. Backend API

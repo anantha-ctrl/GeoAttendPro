@@ -199,6 +199,16 @@ final class AttendanceController
             Response::error('Validation failed.', 422, $v->errors());
         }
 
+        // A work summary is required before checking out.
+        $workNote = trim((string)$request->input('work_note', ''));
+        if ($workNote === '') {
+            Response::error('Please describe the work you did this session before checking out.', 422,
+                ['work_note' => 'Work summary is required.']);
+        }
+        if (mb_strlen($workNote) > 2000) {
+            $workNote = mb_substr($workNote, 0, 2000);
+        }
+
         // Same office-geofence rule on check-out (skipped for WFH days).
         self::enforceLocation($userId, $today, (float)$request->input('latitude'), (float)$request->input('longitude'));
 
@@ -210,13 +220,14 @@ final class AttendanceController
             $selfiePath = Uploader::fromBase64((string)$request->input('selfie'), 'selfies', 'out_' . $userId);
         }
 
-        // 1) Close this session.
+        // 1) Close this session (with the employee's work summary).
         AttendanceSession::update((int)$open['id'], [
             'check_out_time'   => $now,
             'check_out_lat'    => (float)$request->input('latitude'),
             'check_out_lng'    => (float)$request->input('longitude'),
             'check_out_selfie' => $selfiePath,
             'working_minutes'  => $sessionMinutes,
+            'work_note'        => $workNote,
         ]);
 
         // 2) Re-aggregate the per-day summary (sum of all sessions today).

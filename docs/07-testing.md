@@ -13,7 +13,7 @@ The following were executed against `php -S` + MariaDB and **passed**:
 - `POST /auth/login` → returns token, csrf, role `super_admin`.
 - `GET /auth/me` with Bearer → 200.
 - `GET /dashboard/admin` → counters returned.
-- `POST /employees` without CSRF → **419**; with CSRF → **201** (auto code `EMP-0004`).
+- `POST /employees` without CSRF → **419**; with CSRF → **201** (auto code `CLHK004`).
 - `POST /attendance/check-in` (employee) → 201, `is_late=true`, selfie stored.
 - Duplicate `check-in` same day → **409**.
 - `POST /attendance/check-out` → working minutes + final status.
@@ -98,12 +98,13 @@ final class AttendanceServiceTest extends \PHPUnit\Framework\TestCase
 
 ## 5. Browser E2E checklist (manual)
 1. Login as employee on `localhost` → allow GPS + camera prompts.
-2. Capture selfie + location → Check In → dashboard shows status.
-3. Check Out → working hours appear.
-4. Login as admin → dashboard charts render; daily attendance shows the employee's selfie + map link.
-5. Apply leave (employee) → approve (admin) → employee notification badge increments.
-6. Export a report as CSV and as Print/PDF.
-7. Wait past session timeout (or shorten in settings) → next action redirects to login.
+2. Capture selfie + location (drag pin if GPS is coarse) → face verify → Check In → dashboard shows live status.
+3. Type a **work summary** → Check Out → worked hours appear; summary shown in the day's sessions.
+4. Past work-end time → popup *Logout / Continue Working*; Continue → Overtime mode + 30-min reminder.
+5. Login as admin → dashboard charts render; **Live Status** board shows 🟢/🔵/⚫ per employee; daily attendance shows selfie + map link.
+6. Apply leave / WFH (employee) → approve (admin) → notification badge increments; on a WFH date check-in is allowed from anywhere.
+7. Open **Payroll** → payslip breakdown (deductions + overtime incentive) renders; export a report as CSV and Print/PDF.
+8. Token expiry → next action returns 401 and redirects to login.
 
 ## 6. Performance / load (optional)
 - Use `k6`/`ab` against `/auth/login` and `/attendance/today`; verify p95 < 300 ms with indexes in place.

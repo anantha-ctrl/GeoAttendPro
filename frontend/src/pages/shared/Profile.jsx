@@ -102,7 +102,7 @@ export default function Profile() {
             </form>
           </div></div>
 
-          <div className="card stat-card"><div className="card-body">
+          <div className="card stat-card" id="change-password" style={{ scrollMarginTop: '80px' }}><div className="card-body">
             <h6 className="fw-semibold">Change Password</h6>
             <form onSubmit={changePw} className="row g-2">
               <div className="col-md-4"><label className="form-label small">Current</label>

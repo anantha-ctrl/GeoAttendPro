@@ -3,8 +3,10 @@ export const fmtDate = (d) => (d ? new Date(d).toLocaleDateString() : '—');
 export const fmtTime = (dt) =>
   dt ? new Date(dt.replace(' ', 'T')).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
 
-export const fmtHours = (minutes) =>
-  minutes ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : '—';
+export const fmtHours = (minutes) => {
+  const m = Math.round(minutes || 0);
+  return m ? `${Math.floor(m / 60)}h ${m % 60}m` : '—';
+};
 
 export const statusColor = (status) =>
   ({

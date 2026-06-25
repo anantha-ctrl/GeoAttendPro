@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
@@ -12,22 +12,33 @@ import { fmtTime, fmtHours, statusColor, prettyStatus, fmtDate } from '../../uti
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 const money = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
-const TL_LABELS = { login: 'Logged in', rest_start: 'Rest started', rest_end: 'Rest ended', overtime_start: 'Overtime started', logout: 'Logged out' };
+const TL_LABELS = { login: 'Logged in', overtime_start: 'Overtime started', logout: 'Logged out' };
 const priColor = (p) => (p === 'high' ? 'danger' : p === 'medium' ? 'warning' : 'secondary');
 const taskStatus = (s) => (s === 'in_progress' ? 'In Progress' : s === 'todo' ? 'To Do' : s);
 
 export default function EmployeeDashboard() {
   const { user } = useAuth();
   const [data, setData] = useState(null);
-  const [live, setLive] = useState(null); // live login/rest/active from ActivityTracker
+  const [live, setLive] = useState(null); // live snapshot from the workday monitor
+  const [now, setNow] = useState(Date.now()); // 1s clock for the live worked counter
+  const liveAtRef = useRef(Date.now());       // when the last live snapshot arrived
 
   useEffect(() => {
     const load = () => api.get('/dashboard/employee').then((r) => setData(r.data.data)).catch(() => {});
     load();
     const id = setInterval(load, 30000); // live auto-refresh
-    const onActivity = (e) => setLive((prev) => ({ ...e.detail, timeline: e.detail?.timeline ?? prev?.timeline ?? [] }));
+    const onActivity = (e) => {
+      liveAtRef.current = Date.now();
+      setLive((prev) => ({ ...e.detail, timeline: e.detail?.timeline ?? prev?.timeline ?? [] }));
+    };
     window.addEventListener('activity-update', onActivity);
     return () => { clearInterval(id); window.removeEventListener('activity-update', onActivity); };
+  }, []);
+
+  // Tick every second so Worked / Overtime advance live between server polls.
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
   }, []);
 
   if (!data) return <div className="spinner-border text-primary" />;
@@ -37,17 +48,30 @@ export default function EmployeeDashboard() {
   const c = m.counts;
   const presentDays = c.present + c.late + c.wfh;
   const pay = data.payroll || {};
-  const hoursToday = today?.working_minutes ? Math.round((today.working_minutes / 60) * 100) / 100 : 0;
 
-  // Login (gross) vs rest (sleep/screen-off) vs active time for today — live from ActivityTracker.
-  const grossMinToday   = live?.gross_minutes ?? (today?.working_minutes || 0);
-  const restMinToday    = live?.rest_minutes ?? Math.round((today?.rest_seconds || 0) / 60);
-  const activeMinToday  = live?.active_minutes ?? Math.max(0, grossMinToday - restMinToday);
-  const overtimeMinToday = live?.overtime_minutes ?? 0;
-  const liveTimeline    = live?.timeline || [];
+  // Worked time + overtime for today — live from the workday monitor, advanced by the
+  // seconds elapsed since the last snapshot so the counter ticks in real time.
+  const checkedInLive    = !!today && !today.check_out_time;
+  const elapsedMin       = checkedInLive ? Math.max(0, (now - liveAtRef.current) / 60000) : 0;
+  const grossMinToday    = (live?.gross_minutes ?? (today?.working_minutes || 0)) + elapsedMin;
+  const overtimeMinToday = (live?.overtime_minutes ?? 0) + (live?.status === 'overtime' ? elapsedMin : 0);
+  // Rest tracking removed — drop any rest events from the timeline.
+  const liveTimeline    = (live?.timeline || []).filter((ev) => ev.event_type !== 'rest_start' && ev.event_type !== 'rest_end');
+
+  // Hours today = live worked time (in-progress sessions counted, not just finalized check-out).
+  const hoursToday = Math.round((grossMinToday / 60) * 100) / 100;
+
+  // Add today's in-progress hours to the month total until check-out finalizes them
+  // (after check-out the hours land in m.worked_hours, so we stop adding to avoid double-count).
+  const monthWorkedHours  = Math.round((((m.worked_hours ?? m.total_work_hours) || 0) + (checkedInLive ? hoursToday : 0)) * 100) / 100;
+  const monthRequired     = m.required_hours || 0;
+  const monthHoursPercent = monthRequired > 0 ? Math.round((monthWorkedHours / monthRequired) * 1000) / 10 : 0;
+  const monthRemaining    = Math.round(Math.max(0, monthRequired - monthWorkedHours) * 100) / 100;
 
   const ctaLabel = data.today.can_checkin ? 'Check In' : data.today.can_checkout ? 'Check Out' : 'Mark Attendance';
 
+  // Plain object (declared after the early return, so it must not be a hook).
+  // `animation: false` on the chart keeps the 1s live-clock re-render flicker-free.
   const donut = {
     labels: ['Present', 'Late', 'Half Day', 'Leave', 'WFH', 'Absent'],
     datasets: [{
@@ -97,11 +121,11 @@ export default function EmployeeDashboard() {
       <div className="row g-3 mb-4">
         <div className="col-6 col-lg-3"><StatCard icon="graph-up-arrow" label="Attendance %" value={m.attendance_percent} suffix="%" color="#22c55e" /></div>
         <div className="col-6 col-lg-3"><StatCard icon="clock-fill" label="Hours Today" value={hoursToday} suffix="h" color="#6366f1" /></div>
-        <div className="col-6 col-lg-3"><StatCard icon="clock-history" label="Hours This Month" value={m.total_work_hours} suffix="h" color="#0ea5e9" /></div>
+        <div className="col-6 col-lg-3"><StatCard icon="clock-history" label="Hours This Month" value={monthWorkedHours} suffix="h" color="#0ea5e9" /></div>
         <div className="col-6 col-lg-3"><StatCard icon="check-circle-fill" label="Present Days" value={presentDays} color="#4f46e5" /></div>
         <div className="col-6 col-lg-3"><StatCard icon="clock" label="Late Days" value={c.late} color="#f59e0b" /></div>
-        <div className="col-6 col-lg-3"><StatCard icon="cash-stack" label="Est. Net Pay" value={money(pay.net_pay)} color="#16a34a" /></div>
         <div className="col-6 col-lg-3"><StatCard icon="list-check" label="Open Tasks" value={data.open_tasks_count ?? 0} color="#7c3aed" /></div>
+        <div className="col-6 col-lg-3"><StatCard icon="headset" label="Open Tickets" value={data.open_tickets_count ?? 0} color="#0ea5e9" /></div>
         <div className="col-6 col-lg-3"><StatCard icon="hourglass" label="Pending Leaves" value={data.pending_leaves} color="#f97316" /></div>
       </div>
 
@@ -120,18 +144,49 @@ export default function EmployeeDashboard() {
         </div>
         <div className="d-flex justify-content-between align-items-end mb-1">
           <div>
-            <span className="fs-3 fw-bold text-success">{m.worked_hours}h</span>
-            <span className="text-muted"> / {m.required_hours}h worked</span>
+            <span className="fs-3 fw-bold text-success">{monthWorkedHours}h</span>
+            <span className="text-muted"> / {monthRequired}h worked</span>
           </div>
           <div className="text-end">
-            <div className="fw-bold">{m.hours_percent}%</div>
-            <div className="text-muted small">{m.remaining_hours}h remaining</div>
+            <div className="fw-bold">{monthHoursPercent}%</div>
+            <div className="text-muted small">{monthRemaining}h remaining</div>
           </div>
         </div>
         <div className="progress" style={{ height: 12, borderRadius: 8 }}>
-          <div className={`progress-bar ${m.hours_percent >= 100 ? 'bg-success' : 'bg-primary'}`}
-            role="progressbar" style={{ width: `${Math.min(100, m.hours_percent)}%` }}
-            aria-valuenow={m.hours_percent} aria-valuemin={0} aria-valuemax={100} />
+          <div className={`progress-bar ${monthHoursPercent >= 100 ? 'bg-success' : 'bg-primary'}`}
+            role="progressbar" style={{ width: `${Math.min(100, monthHoursPercent)}%` }}
+            aria-valuenow={monthHoursPercent} aria-valuemin={0} aria-valuemax={100} />
+        </div>
+      </div></div>
+
+      {/* Payslip summary (this month, estimated from attendance) */}
+      <div className="card stat-card mb-4"><div className="card-body">
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <h6 className="fw-semibold mb-0"><i className="bi bi-cash-coin me-1 text-success" />Payslip Summary
+            <span className="text-muted small fw-normal"> · this month (estimated)</span></h6>
+          <Link to="/payroll" className="small link-gap">View payslip <i className="bi bi-arrow-right" /></Link>
+        </div>
+        <div className="row g-3 text-center">
+          <div className="col-6 col-lg-3">
+            <div className="text-muted small">Base Salary</div>
+            <div className="fw-bold fs-5">{money(pay.monthly_salary)}</div>
+            <div className="text-muted" style={{ fontSize: '.7rem' }}>{pay.paid_days ?? 0}/{pay.working_days ?? 0} paid days</div>
+          </div>
+          <div className="col-6 col-lg-3">
+            <div className="text-muted small"><i className="bi bi-stopwatch" /> Overtime</div>
+            <div className="fw-bold fs-5 text-success">+{money(pay.overtime_incentive)}</div>
+            <div className="text-muted" style={{ fontSize: '.7rem' }}>{pay.overtime_hours ?? 0}h extra</div>
+          </div>
+          <div className="col-6 col-lg-3">
+            <div className="text-muted small"><i className="bi bi-dash-circle" /> Deductions</div>
+            <div className="fw-bold fs-5 text-danger">−{money(pay.deductions)}</div>
+            <div className="text-muted" style={{ fontSize: '.7rem' }}>{pay.lop_days ?? 0} LOP day(s)</div>
+          </div>
+          <div className="col-6 col-lg-3 border-start-lg">
+            <div className="text-muted small">Net Pay (take-home)</div>
+            <div className="fw-bold fs-4 text-success">{money(pay.net_pay)}</div>
+            <div className="text-muted" style={{ fontSize: '.7rem' }}>{pay.per_day_rate ? `${money(pay.per_day_rate)}/day` : ''}</div>
+          </div>
         </div>
       </div></div>
 
@@ -153,14 +208,12 @@ export default function EmployeeDashboard() {
                   <div className="col-6"><div className="text-muted small">Check-out</div><div className="fw-bold">{fmtTime(today.check_out_time)}</div></div>
                 </div>
                 <div className="row text-center g-2">
-                  <div className="col-3"><div className="text-muted small">Login</div><div className="fw-bold text-primary">{fmtHours(grossMinToday)}</div></div>
-                  <div className="col-3"><div className="text-muted small"><i className="bi bi-moon-stars" /> Rest</div><div className="fw-bold text-warning">{fmtHours(restMinToday)}</div></div>
-                  <div className="col-3"><div className="text-muted small"><i className="bi bi-lightning-charge" /> Active</div><div className="fw-bold text-success">{fmtHours(activeMinToday)}</div></div>
-                  <div className="col-3"><div className="text-muted small"><i className="bi bi-stopwatch" /> OT</div><div className="fw-bold text-info">{fmtHours(overtimeMinToday)}</div></div>
+                  <div className="col-6"><div className="text-muted small"><i className="bi bi-lightning-charge" /> Worked</div><div className="fw-bold text-success">{fmtHours(grossMinToday)}</div></div>
+                  <div className="col-6"><div className="text-muted small"><i className="bi bi-stopwatch" /> Overtime</div><div className="fw-bold text-info">{fmtHours(overtimeMinToday)}</div></div>
                 </div>
                 {data.today.can_checkout && (
                   <div className="text-muted small mt-2 text-center">
-                    <span className="live-dot me-1" />Live · screen-off / lock / sleep counts as rest
+                    <span className="live-dot me-1" />Live · auto-tracked from check-in
                   </div>
                 )}
               </>
@@ -178,7 +231,7 @@ export default function EmployeeDashboard() {
         <div className="col-lg-4">
           <div className="card stat-card h-100"><div className="card-body">
             <h6 className="fw-semibold mb-3">This Month</h6>
-            <Doughnut data={donut} options={{ plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } } }} />
+            <Doughnut data={donut} options={{ animation: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } } }} />
           </div></div>
         </div>
 

@@ -45,13 +45,13 @@ export default function Leaves() {
     <>
       <div className="page-head">
         <div><h4 className="fw-bold">{isAdmin ? 'Leave Management' : 'My Leaves'}</h4>
-          <div className="sub">{isAdmin ? 'Review &amp; approve requests' : 'Apply &amp; track your leaves'}</div></div>
+          <div className="sub">{isAdmin ? 'Review & approve requests' : 'Apply & track your leaves'}</div></div>
       </div>
       {error && <div className="alert alert-danger">{error}</div>}
       {msg && <div className="alert alert-success">{msg}</div>}
 
       {!isAdmin && balance.length > 0 && (
-        <div className="row g-3 mb-1">
+        <div className="row g-3 mb-3">
           {balance.map((b) => (
             <div className="col-6 col-lg-3" key={b.id}>
               <div className="card stat-card h-100"><div className="card-body py-3">

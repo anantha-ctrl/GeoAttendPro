@@ -7,7 +7,7 @@
 - Node.js 18+ (for the React frontend)
 
 ### 2. Database
-> **Port note:** GeoAttend Pro expects MySQL on port **3306** with the credentials in
+> **Port note:** CloudHawk expects MySQL on port **3306** with the credentials in
 > `backend/.env`. If another MySQL/MySQL-8 service already occupies 3306, either stop it so
 > XAMPP's MariaDB can bind 3306, **or** set `DB_PORT`/`DB_USER`/`DB_PASS` in `.env` to point at
 > the running server.
@@ -21,12 +21,14 @@
    DB_USER=root
    DB_PASS=
    ```
-3. Create schema + seed:
+3. Create schema + seed, then apply feature migrations:
    ```bash
    cd backend
-   php console/migrate.php
+   php console/migrate.php                 # base schema + seed
+   php database/phase2.php                 # then phase3 … phase10 in order
    ```
-   (Or import `backend/database/schema.sql` then `seed.sql` via phpMyAdmin / MySQL Workbench.)
+   (Or import `backend/database/schema.sql` then `seed.sql` via phpMyAdmin / MySQL Workbench,
+   followed by the phase scripts. All migrations are idempotent.)
 
 ### 3. Backend API
 - Place the project under `D:\xampp\htdocs\GeoAttendPro` (already done).

@@ -57,22 +57,30 @@ flowchart LR
 flowchart TD
     Start([Employee opens Mark Attendance]) --> Auth{Authenticated?}
     Auth -- No --> Login[Redirect to Login]
-    Auth -- Yes --> Today{Already checked in today?}
-    Today -- No --> GPS[Request GPS permission]
-    GPS --> Selfie[Capture live selfie]
-    Selfie --> CIn[POST /attendance/check-in]
-    CIn --> Fence{Geofence enabled & inside?}
-    Fence -- No / disabled --> Save[Store record + selfie + IP + device]
+    Auth -- Yes --> Open{Open session today?}
+    Open -- No --> GPS[Capture GPS · drag-pin correct]
+    GPS --> Selfie[Live selfie]
+    Selfie --> Face[Face verify vs enrolled descriptor]
+    Face --> WFH{Approved WFH today?}
+    WFH -- Yes --> CIn[POST /attendance/check-in<br/>allowed anywhere · status wfh]
+    WFH -- No --> Fence{Inside an office geofence?<br/>any branch · ~100m}
     Fence -- Outside --> Reject[422 Outside allowed location]
+    Fence -- Inside --> CIn
+    CIn --> Save[Open session · status Working<br/>record branch · log 'login']
     Save --> Late{After start time + grace?}
-    Late -- Yes --> MarkLate[status = late + alert]
+    Late -- Yes --> MarkLate[status = late]
     Late -- No --> MarkPresent[status = present]
-    Today -- Yes, no checkout --> COut[POST /attendance/check-out]
+    Open -- Yes, no checkout --> Note[Type work summary]
+    Note --> COut[POST /attendance/check-out<br/>+ work_note · geofence/WFH enforced]
     COut --> Calc[Compute working minutes + final status]
-    Calc --> Done([Attendance complete])
+    Calc --> Done([Session complete · multiple/day])
     MarkLate --> Done
     MarkPresent --> Done
 ```
+
+> After check-in the **work-tracking state machine** runs (Working → Overtime → Logged Out): a
+> work-end popup offers *Logout / Continue Working*; the **Admin Live Status** board reflects each
+> employee's state in real time. See README → *Work-tracking state machine*.
 
 ## 4. Sequence Diagram — Check-In
 

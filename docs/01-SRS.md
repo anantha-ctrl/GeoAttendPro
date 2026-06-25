@@ -1,20 +1,24 @@
 # Software Requirements Specification (SRS)
-## GeoAttend Pro — Smart Web-Based Employee Attendance & Workforce Tracking System
+## CloudHawk — Smart Web-Based Employee Attendance & Workforce Tracking System
 
-**Version:** 1.0   **Date:** 2026-06-18
+**Version:** 2.0   **Date:** 2026-06-25   *(formerly GeoAttend Pro)*
 
 ---
 
 ## 1. Introduction
 
 ### 1.1 Purpose
-GeoAttend Pro lets organizations **without a fixed office** track attendance of remote / field
-employees. Attendance is verified with **GPS coordinates**, a **live selfie**, and a
-**server-side timestamp**, making proxy or fake attendance impractical.
+CloudHawk lets organizations **with or without a fixed office** track attendance of office,
+remote and field employees. Attendance is verified with **GPS geofencing**, a **live selfie**,
+**in-browser face verification**, and a **server-side timestamp**, making proxy or fake
+attendance impractical.
 
 ### 1.2 Scope
-The system provides authentication & RBAC, employee management, GPS+selfie attendance,
-leave management, dashboards, reporting/export, notifications, and a complete security/audit layer.
+The system provides authentication & RBAC, employee management, GPS+selfie+face attendance,
+a real-time **work-tracking state machine** (Working → Overtime → Logged Out), leave & WFH
+management, **attendance-driven payroll**, expense claims, regularization, tasks, help-desk
+tickets, documents, notices, holidays, shifts, multi-branch geofencing, dashboards,
+reporting/export, notifications, and a complete security/audit layer.
 
 ### 1.3 Definitions
 | Term | Meaning |
@@ -56,7 +60,7 @@ communicating over JSON/HTTPS. Stateless token auth allows horizontal scaling.
 - FR-1.7 Role-based authorization on every protected endpoint.
 
 ### FR-2 Employee Management
-- Add / edit / delete employees; auto-generated Employee Code (EMP-XXXX).
+- Add / edit / delete employees; auto-generated Employee Code (**`CLHK###`**, e.g. `CLHK001`).
 - Manage departments and designations.
 - Activate / deactivate / suspend (suspension force-logs-out the user).
 - Search & filter by name/email/code/phone, department, designation, role, status (paginated).
@@ -64,26 +68,54 @@ communicating over JSON/HTTPS. Stateless token auth allows horizontal scaling.
   Joining Date, Profile Photo, Status.
 
 ### FR-3 Attendance
-- Workflow: login → GPS permission → live selfie → check-in → check-out → history.
-- Stored: user, check-in/out time, lat/lng (in & out), selfies, IP, device, status, working minutes.
+- Workflow: login → GPS (geofence check) → live selfie → face verify → check-in →
+  work-tracking → **work summary** → check-out → history.
+- **Multiple sessions per day** — each check-in/out pair is an `attendance_sessions` row; the
+  `attendance` table keeps the one-per-day summary. A **work summary note** is required at check-out
+  and stored on the session.
+- Stored: user, check-in/out time, lat/lng (in & out), selfies, IP, device, status, working minutes,
+  matched **branch**, work note.
 - Statuses: Present, Late, Half Day, Absent, Leave, WFH.
-- Rules: **one check-in per day** (DB unique constraint), duplicate prevention, auto working-hours,
-  auto late detection, auto attendance percentage.
+- **Sundays are a company week-off**; holidays excluded from working-day calculations.
+- Rules: duplicate prevention, auto working-hours, auto late detection, auto attendance percentage.
 
-### FR-4 GPS Verification
-- Real-time capture via browser Geolocation API; lat/lng persisted.
-- Location displayed (Google Maps link) to admins.
-- **Geo-fencing ready**: validates against active geofences when enabled in settings.
+### FR-3a Work-Tracking State Machine
+- On check-in a session opens in **Working**; work time is auto-tracked.
+- At the configured **work-end time** a popup offers *Logout* or *Continue Working*; continuing
+  enters **Overtime** mode with a reminder every 30 minutes.
+- States 🟢 Working · 🔵 Overtime · ⚫ Logged Out are surfaced on the **Admin Live Status** board
+  (15s refresh) and the employee dashboard timeline (`attendance_events`).
 
-### FR-5 Selfie Verification
-- Live camera capture (or upload), stored as attendance proof, linked to each check-in/out.
+### FR-4 GPS Verification & Geofencing
+- Real-time capture via browser Geolocation API (refined with `watchPosition`); lat/lng persisted.
+- Interactive Leaflet map with a **draggable pin** to correct coarse GPS; office geofences shown.
+- **Geofence enforcement** (≈100m): check-in/out allowed only inside an active office geofence.
+  **Multiple branches** supported (any active geofence matches; matched branch recorded).
+- **Work From Home**: employees with an approved *Work From Home* leave can check in/out from anywhere.
+
+### FR-5 Selfie & Face Verification
+- Live camera capture, stored as attendance proof, linked to each check-in/out.
+- **Face verification** (face-api.js, in-browser): the captured selfie is matched against the
+  employee's enrolled face descriptor to block proxy attendance.
+
+### FR-5a Payroll, Expenses & Workforce
+- **Payroll** (attendance-driven): working days = calendar − Sundays − holidays; per-day rate;
+  deductions for absent/half-days and a configurable late penalty; **overtime incentive** added;
+  printable payslip with full breakdown.
+- **Expense claims** (receipt upload, approve/reject), **regularization** requests,
+  **tasks**, **help-desk tickets**, **documents**, **notices**, **holidays**, **shifts**,
+  **clients/purchases**, and **celebrations** (birthday / work-anniversary).
 
 ### FR-6 Admin Dashboard
 - Widgets: Total Employees, Present/Absent/Late Today, Total Check-Ins, Attendance %, On-Leave, Pending Leaves.
 - Charts: Daily (line), Monthly (bar), Department breakdown (doughnut).
 
 ### FR-7 Employee Dashboard
-- Today's status, check-in/out actions, monthly %, work-hour summary, recent history, profile.
+- Quick actions, attendance %, today vs monthly hours (Worked/Overtime), monthly hours target,
+  live work status + timeline, **payslip summary** (base / overtime / deductions / net pay),
+  open tasks/tickets, latest notice, upcoming holidays, celebrations, recent history.
+- **Mobile-responsive shell** — off-canvas sidebar + hamburger (≤991px), centered brand, and a
+  top-right **profile dropdown** (My Profile · Change Password · Settings · Logout).
 
 ### FR-8 Leave Management
 - Apply (with overlap detection), approve/reject (with remarks), cancel, history, statuses.

@@ -35,7 +35,7 @@ ON DUPLICATE KEY UPDATE `name`=VALUES(`name`);
 INSERT INTO `leave_types` (`id`,`name`,`max_days_year`) VALUES
   (1,'Casual Leave',12),
   (2,'Sick Leave',10),
-  (3,'Earned Leave',15),
+  (3,'Earned Leave',12),
   (4,'Work From Home',NULL)
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`);
 
@@ -43,11 +43,11 @@ ON DUPLICATE KEY UPDATE `name`=VALUES(`name`);
 INSERT INTO `users`
   (`id`,`employee_code`,`full_name`,`email`,`phone`,`password_hash`,`role_id`,`department_id`,`designation_id`,`address`,`joining_date`,`status`)
 VALUES
-  (1,'CLHK-0001','System Super Admin','superadmin@geoattend.test','9000000001',
+  (1,'CLHK001','System Super Admin','superadmin@geoattend.test','9000000001',
    '$2y$10$oZEXhi4EGcj0yOo7B6EZ8.Ni7uI.yqvYrimmohlXSUZQ1RbM7zRlS',1,3,4,'HQ','2024-01-01','active'),
-  (2,'CLHK-0002','Priya HR','hr@geoattend.test','9000000002',
+  (2,'CLHK002','Priya HR','hr@geoattend.test','9000000002',
    '$2y$10$oZEXhi4EGcj0yOo7B6EZ8.Ni7uI.yqvYrimmohlXSUZQ1RbM7zRlS',2,3,4,'HQ','2024-02-01','active'),
-  (3,'CLHK-0003','John Field','john@geoattend.test','9000000003',
+  (3,'CLHK003','John Field','john@geoattend.test','9000000003',
    '$2y$10$5T39tT5NLvJ8u6iRh.SHBuBFZ7nhvIQK2sBhzwBKoPyp3lg8X0cUe',3,2,3,'Remote','2024-03-15','active')
 ON DUPLICATE KEY UPDATE `full_name`=VALUES(`full_name`);
 

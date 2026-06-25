@@ -58,7 +58,9 @@ export default function Layout() {
   const [open, setOpen] = useState(false);
   const [notifs, setNotifs] = useState({ items: [], unread_count: 0 });
   const [bellOpen, setBellOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const bellRef = useRef(null);
+  const profileRef = useRef(null);
 
   // Managers (anyone with direct reports) get a "My Team" link.
   const teamLink = { to: '/team', icon: 'diagram-2', label: 'My Team' };
@@ -67,7 +69,7 @@ export default function Layout() {
     ? [baseLinks[0], teamLink, ...baseLinks.slice(1)]
     : baseLinks;
 
-  useEffect(() => { setOpen(false); setBellOpen(false); }, [location.pathname]);
+  useEffect(() => { setOpen(false); setBellOpen(false); setProfileOpen(false); }, [location.pathname]);
 
   // Poll notifications every 30s (near real-time).
   const loadNotifs = () =>
@@ -81,9 +83,12 @@ export default function Layout() {
     return () => clearInterval(id);
   }, []);
 
-  // Close bell dropdown on outside click.
+  // Close dropdowns on outside click.
   useEffect(() => {
-    const onClick = (e) => { if (bellRef.current && !bellRef.current.contains(e.target)) setBellOpen(false); };
+    const onClick = (e) => {
+      if (bellRef.current && !bellRef.current.contains(e.target)) setBellOpen(false);
+      if (profileRef.current && !profileRef.current.contains(e.target)) setProfileOpen(false);
+    };
     document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
   }, []);
@@ -122,15 +127,18 @@ export default function Layout() {
 
       <div className="content">
         <header className="topbar">
-          <button className="btn btn-sm btn-light d-md-none" onClick={() => setOpen((o) => !o)}>
-            <i className="bi bi-list" />
+          {/* Left: menu (mobile/tablet) / live indicator (desktop) */}
+          <button className="btn btn-sm btn-light d-lg-none" onClick={() => setOpen((o) => !o)} aria-label="Menu">
+            <i className="bi bi-list fs-5" />
           </button>
-
-          <div className="d-none d-sm-flex align-items-center gap-2 text-muted small">
+          <div className="d-none d-lg-flex align-items-center gap-2 text-muted small">
             <span className="live-dot" /> {t('Live')}
           </div>
 
-          <div className="ms-auto d-flex align-items-center gap-3">
+          {/* Centre: brand (mobile/tablet only) */}
+          <div className="topbar-brand d-lg-none"><BrandLogo height={26} /></div>
+
+          <div className="ms-auto d-flex align-items-center gap-2 gap-md-3">
             {/* Notification dropdown */}
             <div className="position-relative" ref={bellRef}>
               <button className="bell-btn" onClick={toggleBell} title="Notifications">
@@ -166,18 +174,36 @@ export default function Layout() {
               )}
             </div>
 
-            {/* Profile */}
-            <Link to="/profile" className="topbar-user">
-              <Avatar name={user?.full_name} photo={user?.profile_photo} size={38} />
-              <div className="text-end d-none d-sm-block">
-                <div className="fw-semibold small lh-1">{user?.full_name}</div>
-                <div className="text-muted" style={{ fontSize: '.72rem' }}>{user?.role_name}</div>
-              </div>
-            </Link>
-
-            <button className="btn btn-sm btn-outline-danger" onClick={handleLogout}>
-              <i className="bi bi-box-arrow-right me-1" />{t('Logout')}
-            </button>
+            {/* Profile dropdown */}
+            <div className="position-relative" ref={profileRef}>
+              <button type="button" className="topbar-user" onClick={() => setProfileOpen((o) => !o)}>
+                <Avatar name={user?.full_name} photo={user?.profile_photo} size={38} />
+                <div className="text-end d-none d-sm-block">
+                  <div className="fw-semibold small lh-1">{user?.full_name}</div>
+                  <div className="text-muted" style={{ fontSize: '.72rem' }}>{user?.role_name}</div>
+                </div>
+                <i className="bi bi-chevron-down small d-none d-sm-block text-muted" />
+              </button>
+              {profileOpen && (
+                <div className="profile-menu">
+                  <div className="profile-menu-head">
+                    <Avatar name={user?.full_name} photo={user?.profile_photo} size={40} />
+                    <div className="overflow-hidden">
+                      <div className="fw-semibold small text-truncate">{user?.full_name}</div>
+                      <div className="text-muted text-truncate" style={{ fontSize: '.72rem' }}>{user?.email}</div>
+                    </div>
+                  </div>
+                  <Link to="/profile" className="profile-menu-item"><i className="bi bi-person" />{t('My Profile')}</Link>
+                  <Link to="/profile#change-password" className="profile-menu-item"><i className="bi bi-shield-lock" />{t('Change Password')}</Link>
+                  {isAdmin && (
+                    <Link to="/admin/settings" className="profile-menu-item"><i className="bi bi-gear" />{t('Settings')}</Link>
+                  )}
+                  <button type="button" className="profile-menu-item text-danger" onClick={handleLogout}>
+                    <i className="bi bi-box-arrow-right" />{t('Logout')}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
         <main className="page">

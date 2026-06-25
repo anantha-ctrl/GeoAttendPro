@@ -46,10 +46,9 @@ final class SettingsController
         Response::success(Settings::all(), 'Settings updated.');
     }
 
-    /** GET /geofences */
+    /** GET /geofences — readable by any logged-in user (office locations for attendance). */
     public function geofences(Request $request): void
     {
-        Guard::allow(['super_admin', 'admin']);
         Response::success(Database::fetchAll('SELECT * FROM geofences ORDER BY id DESC'));
     }
 

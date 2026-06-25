@@ -126,12 +126,12 @@ final class User extends BaseModel
         );
     }
 
-    /** Next sequential employee code, e.g. CLHK-0004. */
+    /** Next sequential employee code, e.g. CLHK001. */
     public static function nextEmployeeCode(): string
     {
         $max = (int)Database::scalar(
-            "SELECT MAX(CAST(SUBSTRING(employee_code, 6) AS UNSIGNED)) FROM users WHERE employee_code LIKE 'CLHK-%'"
+            "SELECT MAX(CAST(SUBSTRING(employee_code, 5) AS UNSIGNED)) FROM users WHERE employee_code LIKE 'CLHK%'"
         );
-        return 'CLHK-' . str_pad((string)($max + 1), 4, '0', STR_PAD_LEFT);
+        return 'CLHK' . str_pad((string)($max + 1), 3, '0', STR_PAD_LEFT);
     }
 }

@@ -18,6 +18,7 @@ final class AttendanceSession extends BaseModel
         'check_in_selfie', 'check_out_selfie', 'ip_address', 'device_info', 'working_minutes',
         'rest_seconds', 'face_verified',
         'work_status', 'branch', 'overtime_seconds', 'rest_started_at', 'overtime_started_at',
+        'work_note',
     ];
 
     /** Add idle/rest seconds (sleep / screen-off) to a session. */

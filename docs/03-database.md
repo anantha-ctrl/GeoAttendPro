@@ -138,10 +138,27 @@ erDiagram
 | `notifications` | In-app + email | `is_read` indexed |
 | `settings` | Key/value config | PK key_name |
 
+### Tables added since v1 (phase migrations)
+| Table | Purpose | Added in |
+|-------|---------|----------|
+| `attendance_sessions` | Per check-in session: work_status, overtime_seconds, branch, **work_note** | phase8–10 |
+| `attendance_events` | Per-session timeline (login / overtime_start / logout) | phase8 |
+| `shifts` | Per-employee timing & late rules | phase2 |
+| `regularizations` | Attendance correction requests | phase2 |
+| `documents` | Per-employee document uploads (+ `users.face_descriptor`) | phase3 |
+| `clients`, `purchases` | Clients/vendors & office purchases | phase5 |
+| `announcements`, `expense_claims`, `tasks`, `tickets` | Notices, expenses, tasks, help-desk | phase6 |
+| `holidays` | Company holidays (recurring) | base/seed |
+| `geofences` | Office branches (lat/lng + radius) for enforcement | base |
+
+> `users.monthly_salary` & `users.date_of_birth` added in phase4 (payroll + celebrations).
+> Employee codes use the **`CLHK###`** format (e.g. `CLHK001`).
+
 ## 3. Key Design Decisions
 - **Unified `users` table** for auth + employee identity (an employee *is* a login).
-- **`UNIQUE(user_id, attendance_date)`** enforces "one check-in per day" at the DB level —
-  immune to application race conditions.
+- **`UNIQUE(user_id, attendance_date)`** keeps **one summary row per day** in `attendance`
+  (immune to race conditions), while `attendance_sessions` records **multiple check-in/out
+  sessions** within that day. The day summary aggregates the sessions.
 - **Coordinates** stored as `DECIMAL(10,7)` (~1 cm precision) — exact, unlike floats.
 - **Sessions in DB** (not just JWT) so they can be force-expired/revoked (suspend user, password change).
 - **`ON DELETE CASCADE`** for attendance/sessions/notifications; **`SET NULL`** for optional FKs.

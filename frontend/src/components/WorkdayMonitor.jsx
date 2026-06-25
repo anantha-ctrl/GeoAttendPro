@@ -4,20 +4,14 @@ import api from '../api/client.js';
 /**
  * Smart Work-Tracking state machine (renders only the popups).
  *
- * Working → Rest → Overtime → Logged Out
+ * Working → Overtime → Logged Out
  *
- * Rest Mode triggers ONLY on device screen-off / lock / sleep — never on mouse,
- * keyboard or idle time. We use the Page Visibility API: when the OS turns the
- * screen off, locks, or sleeps, the browser tab fires `visibilitychange` →
- * hidden. (Plain idle with the screen on does NOT hide the tab, so it is never
- * counted as rest.) A wake-from-sleep is the matching `visible` event.
- *
- * At the configured work-end time a popup offers Logout / Continue Working.
- * Continuing starts Overtime mode with a reminder every 30 minutes.
+ * Work time is auto-tracked from check-in. At the configured work-end time a
+ * popup offers Logout / Continue Working. Continuing starts Overtime mode with
+ * a reminder every 30 minutes.
  */
 const POLL_MS = 15000;
 const OVERTIME_REMINDER_MIN = 30;
-const SLEEP_THRESHOLD_S = 60; // a visible-tab time gap beyond this = device slept / screen off
 
 const fmt = (min) => {
   min = Math.max(0, Math.round(min));
@@ -32,7 +26,6 @@ export default function WorkdayMonitor() {
 
   const hasSession = useRef(false);
   const status = useRef('logged_out');
-  const lastTick = useRef(Date.now()); // baseline for sleep/screen-off detection
   const endTime = useRef('18:30');
   const reminderBucket = useRef(0); // last 30-min overtime bucket we reminded for
 
@@ -49,15 +42,6 @@ export default function WorkdayMonitor() {
     try { const r = await api.get('/attendance/live'); apply(r.data?.data); } catch { /* ignore */ }
   };
 
-  // Switching browser tabs / apps keeps the device awake (screen still ON), so
-  // it must NOT count as rest. We reset the sleep baseline whenever the tab
-  // becomes visible again, so any time spent on another tab is never counted.
-  useEffect(() => {
-    const onVis = () => { if (!document.hidden) lastTick.current = Date.now(); };
-    document.addEventListener('visibilitychange', onVis);
-    return () => document.removeEventListener('visibilitychange', onVis);
-  }, []);
-
   // Poll + drive the workday / overtime popups.
   useEffect(() => {
     let mounted = true;
@@ -65,20 +49,11 @@ export default function WorkdayMonitor() {
     const tick = async () => {
       if (!mounted) return;
 
-      // Sleep / screen-off detection: timers freeze only when the DEVICE sleeps
-      // or the screen powers off. A large gap while the tab is VISIBLE means a
-      // genuine sleep → record it as rest. Tab-switching keeps timers running and
-      // resets the baseline on return, so it never produces a gap here.
-      if (!document.hidden) {
-        const gap = Math.round((Date.now() - lastTick.current) / 1000);
-        lastTick.current = Date.now();
-        if (gap >= SLEEP_THRESHOLD_S && hasSession.current) {
-          try { apply((await api.post('/attendance/rest-end', { seconds: gap })).data?.data); } catch { /* ignore */ }
-        }
-      }
+      // Nothing to poll while the tab is hidden.
+      if (document.hidden) return;
 
       await refresh();
-      if (!hasSession.current || document.hidden) return;
+      if (!hasSession.current) return;
 
       // Overtime reminders every 30 minutes.
       if (status.current === 'overtime') {
@@ -138,7 +113,7 @@ export default function WorkdayMonitor() {
               <p className="text-muted mb-1">Your workday has reached the standard working duration.</p>
               <div className="small text-muted mb-3">
                 Login {snap?.login_time ? new Date(snap.login_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
-                {' · '}Worked {fmt(snap?.active_minutes || 0)}{snap?.rest_minutes ? ` · Rest ${fmt(snap.rest_minutes)}` : ''}
+                {' · '}Worked {fmt(snap?.active_minutes || 0)}
               </div>
               <div className="d-flex gap-2">
                 <button className="btn btn-outline-danger flex-fill" disabled={busy} onClick={doLogout}>
