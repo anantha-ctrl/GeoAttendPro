@@ -35,6 +35,7 @@ use App\Controllers\AnnouncementController;
 use App\Controllers\ExpenseController;
 use App\Controllers\TaskController;
 use App\Controllers\TicketController;
+use App\Controllers\MeetingController;
 
 require dirname(__DIR__) . '/config/bootstrap.php';
 
@@ -219,6 +220,15 @@ $router->get   ('/tickets',      [TicketController::class, 'index'],   $auth);
 $router->post  ('/tickets',      [TicketController::class, 'store'],   $secured);
 $router->patch ('/tickets/{id}', [TicketController::class, 'update'],  $secured);
 $router->delete('/tickets/{id}', [TicketController::class, 'destroy'], $secured);
+
+// ---- Meetings ----
+$router->get   ('/meetings',             [MeetingController::class, 'index'],   $auth);
+$router->get   ('/meetings/{id}',        [MeetingController::class, 'show'],    $auth);
+$router->post  ('/meetings',             [MeetingController::class, 'store'],   $secured);
+$router->put   ('/meetings/{id}',        [MeetingController::class, 'update'],  $secured);
+$router->delete('/meetings/{id}',        [MeetingController::class, 'destroy'], $secured);
+$router->patch ('/meetings/{id}/respond',[MeetingController::class, 'respond'], $secured);
+$router->post  ('/meetings/{id}/attend', [MeetingController::class, 'attend'],  $secured);
 
 // ---- Security (admin) ----
 $router->get('/security/login-history', [SecurityController::class, 'loginHistory'],  $auth);

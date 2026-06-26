@@ -4,12 +4,12 @@
 > with or without a physical office. Employees mark attendance using **GPS geofencing + live
 > selfie + face verification**, while a real-time **work-tracking state machine** (Working →
 > Overtime → Logged Out) monitors actual working time. Includes leave, payroll, expenses,
-> tasks, help-desk, multi-branch support, reporting and full auditing.
+> tasks, help-desk, **meetings with in-app video calls**, multi-branch support, reporting and full auditing.
 
 | Layer     | Technology |
 |-----------|-----------|
 | Frontend  | React 18 (Vite), React Router, Axios, Chart.js, Bootstrap 5 + Icons |
-| Maps/AI   | Leaflet + OpenStreetMap (geofence picker), face-api.js (face match), jsPDF + autotable (PDF) |
+| Maps/AI   | Leaflet + OpenStreetMap (geofence picker), face-api.js (face match), Jitsi Meet (embedded video calls), jsPDF + autotable (PDF) |
 | Backend   | PHP 8.2 REST API (clean MVC, no framework lock-in), PDO |
 | Database  | MySQL / MariaDB 10.4+ |
 | Auth      | Opaque session tokens, CSRF double-submit, RBAC |
@@ -19,18 +19,18 @@ GeoAttendPro/
 ├── backend/                 PHP REST API
 │   ├── config/              env loader + bootstrap (autoloader)
 │   ├── console/             CLI: migrate.php, cron.php
-│   ├── database/            schema.sql, seed.sql, phase2..phase10 migrations
+│   ├── database/            schema.sql, seed.sql, phase2..phase11 migrations
 │   ├── public/              front controller (index.php) + .htaccess + uploads
 │   └── src/
 │       ├── Core/            Database, Router, Request, Response, Auth, Csrf, Validator
 │       ├── Middleware/      AuthMiddleware, CsrfMiddleware
 │       ├── Models/          User, Attendance, AttendanceSession, AttendanceEvent, Leave,
 │       │                    Shift, Holiday, Document, Announcement, ExpenseClaim, Task,
-│       │                    Ticket, Client, Purchase, Department, Designation, Notification
+│       │                    Ticket, Meeting, Client, Purchase, Department, Designation, Notification
 │       ├── Services/        AttendanceService, PayrollService (business rules)
 │       ├── Support/         Activity, Geo, Settings, Uploader, Mailer, Guard
 │       └── Controllers/     Auth, Employee, Attendance, Leave, Dashboard, Report, Payroll,
-│                            Celebration, Announcement, Expense, Task, Ticket, Client, Purchase, ...
+│                            Celebration, Announcement, Expense, Task, Ticket, Meeting, Client, Purchase, ...
 ├── frontend/                React SPA (Vite)
 │   ├── public/              cloudhawk.png (brand logo)
 │   └── src/{api,context,components,pages,utils}
@@ -144,6 +144,21 @@ flowchart TD
   F --> H["Reflected in Calendar · Payroll"]
 ```
 
+### Meetings & in-app video calls
+```mermaid
+flowchart TD
+  A["Any user schedules a meeting<br/>(title, time, invite colleagues)"] --> B["Link given?"]
+  B -- No --> C["Auto-generate Jitsi room<br/>https://meet.jit.si/CloudHawk-xxx"]
+  B -- Yes --> D["Use given link (Zoom/Meet…)"]
+  C --> E["Notify each invitee 🔔"]
+  D --> E
+  E --> F{"Invitee opens Meetings"}
+  F --> G["Accept / Decline (RSVP)"]
+  F --> H["Join → embedded video call<br/>(same page, no tab switch)"]
+  H --> I["Attendance marked<br/>(meeting_attendees.attended)"]
+  I --> J["Organizer/admin sees<br/>invited vs attended counts"]
+```
+
 ### Roles & access (RBAC)
 ```mermaid
 flowchart TD
@@ -161,7 +176,7 @@ flowchart TD
   subgraph EM["👤 Employee"]
     EM1["Mark attendance (GPS + selfie + face)"]
     EM2["Apply leave / WFH · expenses · regularization"]
-    EM3["My tasks · tickets · documents · payslip"]
+    EM3["Tasks · tickets · meetings · documents · payslip"]
     EM4["Manager extra: My Team"]
   end
   SA --> AD --> EM
@@ -178,7 +193,7 @@ flowchart LR
   EMP --> UC2["Apply leave / WFH"]
   EMP --> UC3["Submit expense"]
   EMP --> UC4["Request regularization"]
-  EMP --> UC5["Tasks · tickets · documents · payslip"]
+  EMP --> UC5["Tasks · tickets · meetings · documents · payslip"]
 
   ADM --> UC6["Manage employees / shifts"]
   ADM --> UC7["Approve leave / expense / regularization"]
@@ -260,6 +275,9 @@ erDiagram
   USERS ||--o{ PURCHASES : "records"
   CLIENTS ||--o{ PURCHASES : "optional"
   HOLIDAYS }o--o{ ATTENDANCE : "working-day calc"
+  USERS ||--o{ MEETINGS : "organises"
+  MEETINGS ||--o{ MEETING_ATTENDEES : "invites"
+  USERS ||--o{ MEETING_ATTENDEES : "attends"
 
   USERS {
     int id PK
@@ -315,6 +333,22 @@ erDiagram
     decimal longitude
     int radius_m
   }
+  MEETINGS {
+    bigint id PK
+    string title
+    datetime meeting_date
+    string meeting_link "auto Jitsi / custom"
+    enum status "scheduled/ongoing/completed/cancelled"
+    int created_by FK
+  }
+  MEETING_ATTENDEES {
+    bigint id PK
+    bigint meeting_id FK
+    int user_id FK
+    enum response "invited/accepted/declined"
+    tinyint attended
+    datetime attended_at
+  }
 ```
 
 ## Features
@@ -346,6 +380,7 @@ erDiagram
 ### Workforce & communication
 - **Employee management**, departments, designations, **shifts** (per-employee timing & late rules), **manager hierarchy** ("My Team").
 - **Notice Board** (announcements, pinned), **Holidays** (with recurring), **Tasks** (assign + status), **Help Desk** tickets.
+- **Meetings** — any employee can schedule a meeting and invite colleagues; invitees **RSVP** (accept/decline) and **join an in-app video call** embedded on the same page (no tab switch). Links **auto-generate** an instant Jitsi room when left blank, or use a custom Zoom/Meet URL. **Attendance is tracked** (`meeting_attendees.attended`), and the organizer/admin sees invited vs attended counts.
 - **Celebrations** — birthday & work-anniversary alerts.
 - **Documents** — per-employee document upload.
 - **Notifications** (in-app) + email hooks; **activity / security audit log**.
@@ -353,7 +388,7 @@ erDiagram
 ### Dashboards & reporting
 - **Employee dashboard** — quick actions, attendance %, today vs monthly hours, monthly hours target, **live real-time Worked/Overtime counter** (ticks every second, re-syncs on each server poll), live work status + timeline, **payslip summary** (base / overtime / deductions / net pay), open tasks, **open tickets**, pending leaves, latest notice, upcoming holidays, celebrations.
 - **Admin dashboard** — live counters, status pie, daily/monthly trends, department breakdown, **recent check-ins (latest 3)**, pending leaves, late today, celebrations.
-- **Reports** with charts and **PDF export** (jsPDF).
+- **Reports & Analytics** — live in-page **preview table** + **summary chips** (present/late/absent/half-day/leave counts) that refresh on every filter change; daily / monthly / employee / department / late / leave reports with an employee picker; export to **CSV / PDF (jsPDF) / Print**.
 - **Settings** — work start/end time, late grace, half/full-day minutes, late-per-deduction, overtime rate, geofence enforcement & geofence map picker.
 
 ### Platform
@@ -377,11 +412,12 @@ erDiagram
 | `phase8.php` | work_status, overtime markers, attendance_events timeline |
 | `phase9.php` | attendance(.branch) — multi-branch tracking |
 | `phase10.php` | attendance_sessions(.work_note) — check-out work summary |
+| `phase11.php` | meetings, meeting_attendees — meetings + RSVP/attendance |
 
 ```bash
 cd backend
 "D:/xampp/php/php.exe" console/migrate.php     # base schema + seed
-"D:/xampp/php/php.exe" database/phase2.php      # then run phase3..phase10 in order
+"D:/xampp/php/php.exe" database/phase2.php      # then run phase3..phase11 in order
 ```
 
 ## Quick start
@@ -391,7 +427,7 @@ cd backend
 # Ensure MySQL/MariaDB is running. Configure backend/.env (DB_HOST/PORT/USER/PASS).
 cd backend
 php console/migrate.php        # creates schema + seed data
-# run phase2.php … phase10.php (above) to apply all features
+# run phase2.php … phase11.php (above) to apply all features
 ```
 
 ### 2. Backend API

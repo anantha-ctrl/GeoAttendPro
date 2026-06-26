@@ -38,6 +38,7 @@ import NoticeBoard from './pages/shared/NoticeBoard.jsx';
 import HolidayList from './pages/shared/HolidayList.jsx';
 import Expenses from './pages/shared/Expenses.jsx';
 import Tasks from './pages/shared/Tasks.jsx';
+import Meetings from './pages/shared/Meetings.jsx';
 import Tickets from './pages/shared/Tickets.jsx';
 import Profile from './pages/shared/Profile.jsx';
 import NotFound from './pages/NotFound.jsx';
@@ -89,6 +90,7 @@ export default function App() {
         <Route path="/holidays" element={<HolidayList />} />
         <Route path="/expenses" element={<Expenses />} />
         <Route path="/tasks" element={<Tasks />} />
+        <Route path="/meetings" element={<Meetings />} />
         <Route path="/help-desk" element={<Tickets />} />
         <Route path="/leaves" element={<Leaves />} />
         <Route path="/regularize" element={<Regularize />} />

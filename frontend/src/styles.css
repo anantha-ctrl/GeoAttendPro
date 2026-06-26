@@ -229,6 +229,35 @@ h1, h2, h3, h4, h5, h6 { font-weight: 700; letter-spacing: -0.01em; }
   .border-start-lg { border-left: 1px dashed #e2e8f0; }
 }
 
+/* In-page embedded video call (Jitsi) */
+.meet-overlay {
+  position: fixed; inset: 0; z-index: 1080;
+  background: rgba(15, 23, 42, 0.72); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.meet-modal {
+  width: min(1100px, 96vw); height: min(86vh, 760px);
+  background: #0f172a; border-radius: 1rem; overflow: hidden;
+  display: flex; flex-direction: column; box-shadow: 0 24px 60px rgba(0,0,0,.5);
+}
+.meet-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 14px; background: #fff; border-bottom: 1px solid #e8eaf3;
+}
+.meet-frame { flex: 1; min-height: 0; background: #0f172a; }
+.meet-frame iframe { width: 100% !important; height: 100% !important; border: 0; }
+
+/* Clickable meeting-link pill (joins in-page) */
+.meet-link-chip {
+  display: inline-flex; align-items: center; gap: .4rem; max-width: 100%;
+  padding: .28rem .7rem; border-radius: 999px; border: 1px solid #e0e7ff;
+  background: #eef2ff; color: var(--gap-primary); font-size: .78rem; font-weight: 600;
+  cursor: pointer; transition: background .15s ease, border-color .15s ease;
+}
+.meet-link-chip:hover { background: #e0e7ff; border-color: #c7d2fe; }
+.meet-link-chip i { flex-shrink: 0; }
+.meet-link-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* Dashboard hero banner */
 .dash-hero {
   position: relative;

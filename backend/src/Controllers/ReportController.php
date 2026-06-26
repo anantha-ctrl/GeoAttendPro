@@ -209,7 +209,7 @@ final class ReportController
 </style></head><body>
 <div class="noprint"><button onclick="window.print()">Print / Save as PDF</button></div>
 <h1>{$titleEsc}</h1>
-<div class="meta">GeoAttend Pro &middot; Generated {$generated}</div>
+<div class="meta">CloudHawk &middot; Generated {$generated}</div>
 <table><thead><tr>{$th}</tr></thead><tbody>{$rowsHtml}</tbody></table>
 </body></html>
 HTML;

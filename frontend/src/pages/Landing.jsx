@@ -3,18 +3,21 @@ import { useAuth } from '../context/AuthContext.jsx';
 import BrandLogo from '../components/BrandLogo.jsx';
 
 const FEATURES = [
-  { icon: 'geo-alt-fill', color: '#4f46e5', title: 'GPS Verification', text: 'Every check-in is stamped with real-time location. Optional geo-fencing keeps attendance honest.' },
-  { icon: 'camera-fill', color: '#7c3aed', title: 'Live Selfie Proof', text: 'A live camera selfie at check-in makes proxy or fake attendance impossible.' },
-  { icon: 'speedometer2', color: '#0ea5e9', title: 'Real-Time Dashboards', text: 'Live widgets and charts for present, absent, late, WFH and attendance %.' },
-  { icon: 'calendar-check-fill', color: '#10b981', title: 'Leave Management', text: 'Apply, approve and track leave with overlap detection and instant notifications.' },
-  { icon: 'file-earmark-bar-graph-fill', color: '#f59e0b', title: 'Reports & Export', text: 'Daily, monthly, employee & department reports — export to Excel or PDF.' },
-  { icon: 'shield-lock-fill', color: '#ef4444', title: 'Secure & Audited', text: 'Role-based access, CSRF protection, session timeout and full activity logs.' },
+  { icon: 'geo-alt-fill', color: '#4f46e5', title: 'GPS Geofencing', text: 'Check-in only inside your office geofence — with multi-branch support and Work-From-Home exceptions.' },
+  { icon: 'person-bounding-box', color: '#7c3aed', title: 'Live Selfie + Face Match', text: 'A live selfie is matched against the enrolled face to make proxy or fake attendance impossible.' },
+  { icon: 'broadcast', color: '#0ea5e9', title: 'Smart Work-Tracking', text: 'Auto-tracks working & overtime hours from check-in, with a real-time admin live-status board.' },
+  { icon: 'speedometer2', color: '#06b6d4', title: 'Real-Time Dashboards', text: 'Live widgets, charts and timelines for present, late, WFH, today vs monthly hours and more.' },
+  { icon: 'calendar-check-fill', color: '#10b981', title: 'Leave & WFH', text: 'Apply, approve and track leave & WFH with per-type balances and instant notifications.' },
+  { icon: 'cash-coin', color: '#16a34a', title: 'Attendance-Driven Payroll', text: 'Auto payslips with overtime incentive, deductions and a printable, downloadable breakdown.' },
+  { icon: 'camera-video-fill', color: '#4f46e5', title: 'Meetings & Video Calls', text: 'Schedule meetings, invite colleagues and join an in-app video call — attendance tracked live.' },
+  { icon: 'file-earmark-bar-graph-fill', color: '#f59e0b', title: 'Reports & Analytics', text: 'Live preview, summary analytics and CSV / PDF / print export of attendance & leave data.' },
+  { icon: 'shield-lock-fill', color: '#ef4444', title: 'Secure & Audited', text: 'Role-based access, CSRF protection, token sessions and a full activity & security audit log.' },
 ];
 
 const STEPS = [
   { n: 1, title: 'Sign in', text: 'Employees log in securely from any device, anywhere.' },
-  { n: 2, title: 'Verify GPS + Selfie', text: 'Capture live location and a selfie to prove presence.' },
-  { n: 3, title: 'Check in / out', text: 'Working hours, status and attendance % are calculated automatically.' },
+  { n: 2, title: 'Verify GPS + Selfie + Face', text: 'Capture live location and a selfie, matched against the enrolled face.' },
+  { n: 3, title: 'Check in & work', text: 'Working & overtime hours, status and attendance % are tracked automatically.' },
 ];
 
 export default function Landing() {
@@ -42,10 +45,11 @@ export default function Landing() {
           <div className="row align-items-center g-5">
             <div className="col-lg-6">
               <span className="lp-badge"><i className="bi bi-broadcast" /> Live workforce tracking</span>
-              <h1 className="mb-3">Smart attendance for teams without an office</h1>
+              <h1 className="mb-3">Smart attendance &amp; workforce platform for modern teams</h1>
               <p className="lead mb-4">
-                CloudHawk verifies attendance with <b>GPS + live selfie + timestamp</b> — perfect for
-                remote and field employees. Stop fake attendance, track your workforce in real time.
+                CloudHawk verifies attendance with <b>GPS geofencing + live selfie + face match</b>, then
+                tracks work &amp; overtime in real time — with leave, payroll, meetings, tasks and reports
+                in one place. For office, remote and field teams alike.
               </p>
               <div className="d-flex gap-2 flex-wrap">
                 <Link to={user ? dashHref : '/login'} className="btn btn-hero btn-lg px-4">
@@ -84,10 +88,10 @@ export default function Landing() {
       <div className="lp-stat-bar py-4">
         <div className="container">
           <div className="row text-center g-3">
-            <div className="col-6 col-md-3 lp-stat"><h3>100%</h3><div className="text-muted small">Remote-ready</div></div>
-            <div className="col-6 col-md-3 lp-stat"><h3>GPS</h3><div className="text-muted small">+ Selfie verified</div></div>
-            <div className="col-6 col-md-3 lp-stat"><h3>3</h3><div className="text-muted small">Role levels</div></div>
-            <div className="col-6 col-md-3 lp-stat"><h3>Live</h3><div className="text-muted small">Real-time data</div></div>
+            <div className="col-6 col-md-3 lp-stat"><h3>GPS + Face</h3><div className="text-muted small">Verified check-in</div></div>
+            <div className="col-6 col-md-3 lp-stat"><h3>Live</h3><div className="text-muted small">Work &amp; overtime tracking</div></div>
+            <div className="col-6 col-md-3 lp-stat"><h3>All-in-one</h3><div className="text-muted small">Leave · Payroll · Meetings</div></div>
+            <div className="col-6 col-md-3 lp-stat"><h3>3</h3><div className="text-muted small">Role levels (RBAC)</div></div>
           </div>
         </div>
       </div>
